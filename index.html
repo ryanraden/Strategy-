@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>U.S.–Israel–Iran Conflict Wargame Simulation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #111827; /* bg-gray-900 */
+            color: #d1d5db; /* text-gray-300 */
+        }
+        .tab {
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .tab.active {
+            background-color: #4f46e5; /* indigo-600 */
+            color: white;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .metric-card {
+            background-color: #1f2937; /* bg-gray-800 */
+            border-radius: 0.5rem;
+            padding: 1rem;
+            text-align: center;
+        }
+        .metric-card .value {
+            font-size: 1.875rem; /* 30px */
+            font-weight: 700;
+            color: #818cf8; /* indigo-400 */
+        }
+        .metric-card .label {
+            font-size: 0.875rem;
+            color: #9ca3af; /* text-gray-400 */
+        }
+        .impact-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-weight: 500;
+            font-size: 0.875rem;
+        }
+        .narrative-card {
+            background-color: #1f2937; /* bg-gray-800 */
+            border-left: 4px solid #4f46e5; /* border-indigo-500 */
+        }
+        .heatmap-cell {
+            transition: background-color 0.3s;
+            cursor: pointer;
+        }
+        .insight-summary {
+            background-color: #1e3a8a; /* bg-blue-900 */
+            border-left: 4px solid #3b82f6; /* border-blue-500 */
+            color: #dbeafe; /* text-blue-100 */
+            padding: 1rem;
+            border-radius: 0.25rem;
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }
+        .insight-summary strong {
+            color: #ffffff;
+        }
+        /* Tooltip styles */
+        .tooltip-container {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+        }
+        .tooltip-icon {
+            cursor: pointer; /* Changed from help to pointer */
+            margin-left: 8px;
+            color: #6b7280; /* gray-500 */
+            border: 1px solid #6b7280;
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-style: normal;
+            flex-shrink: 0;
+            transition: background-color 0.2s;
+        }
+         .tooltip-icon:hover {
+            background-color: #374151;
+        }
+        .tooltip-text {
+            visibility: hidden;
+            width: 280px;
+            background-color: #1f2937; /* bg-gray-800 */
+            color: #fff;
+            text-align: left;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #4b5563; /* gray-600 */
+            position: absolute;
+            z-index: 50; /* Ensure it's above other elements */
+            bottom: 140%; /* Position above the icon */
+            left: 50%;
+            transform: translateX(-50%);
+            opacity: 0;
+            transition: opacity 0.3s, visibility 0.3s;
+            font-size: 0.8rem;
+            line-height: 1.4;
+            pointer-events: none; /* Allow clicks to pass through */
+        }
+        .tooltip-text.show {
+             visibility: visible;
+             opacity: 1;
+             pointer-events: auto; /* Make it clickable if needed */
+        }
+        .tooltip-text.bottom {
+             bottom: auto;
+             top: 140%; /* Position below the icon */
+        }
+        .tooltip-text strong {
+            color: #818cf8; /* indigo-400 */
+        }
+
+        /* Chart responsiveness */
+        .chart-container {
+             height: 300px;
+        }
+
+        @media (max-width: 768px) {
+            .metric-card .value {
+                font-size: 1.5rem; /* 24px */
+            }
+             .chart-container {
+                height: 250px;
+            }
+        }
+    </style>
+</head>
+<body class="p-2 sm:p-4 md:p-8">
+    <div class="max-w-7xl mx-auto space-y-6 md:space-y-8">
+        <!-- Header -->
+        <div class="text-center px-2">
+            <h1 class="text-2xl sm:text-3xl md:text-4xl font-bold text-white">Multipolar Conflict Wargame Simulation</h1>
+            <p class="mt-2 text-base md:text-lg text-gray-400">An Interactive Dashboard for Exploring Outcomes</p>
+        </div>
+
+        <!-- Controls -->
+        <div class="bg-gray-800 p-4 md:p-6 rounded-lg shadow-lg">
+            <h2 class="text-xl font-semibold text-white mb-4">Simulation Parameters</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-6">
+                <!-- Parameter 1 -->
+                <div class="space-y-1">
+                    <div class="flex items-center">
+                        <label for="proxyEscalation" class="text-sm font-medium">Proxy Escalation Prob:</label>
+                        <div class="tooltip-container"><i class="tooltip-icon">?</i><span class="tooltip-text"><strong>Controls the "regionalization" of the conflict.</strong><br>Higher values increase the chance of a Regional War, leading to more casualties, refugees, and oil price shocks. Lower values help contain the conflict to a Punch/Pause or Gray Zone scenario.</span></div>
+                    </div>
+                    <div class="flex items-center">
+                        <input type="range" id="proxyEscalation" min="0" max="1" step="0.01" value="0.32" class="w-full mr-3">
+                        <span id="proxyEscalationValue" class="font-mono text-indigo-400 text-sm">0.32</span>
+                    </div>
+                </div>
+                <!-- Parameter 2 -->
+                 <div class="space-y-1">
+                    <div class="flex items-center">
+                        <label for="accidentalEscalation" class="text-sm font-medium">Accidental Escalation Prob:</label>
+                        <div class="tooltip-container"><i class="tooltip-icon">?</i><span class="tooltip-text"><strong>Represents the "fog of war" and unforeseen events.</strong><br>Acts as a "chaos multiplier." Higher values increase the volatility and chance of "black swan" events with extreme casualties and market shocks, potentially spiraling any conflict into a worse scenario.</span></div>
+                    </div>
+                    <div class="flex items-center">
+                        <input type="range" id="accidentalEscalation" min="0" max="1" step="0.01" value="0.15" class="w-full mr-3">
+                        <span id="accidentalEscalationValue" class="font-mono text-indigo-400 text-sm">0.15</span>
+                    </div>
+                </div>
+                <!-- Parameter 3 -->
+                 <div class="space-y-1">
+                    <div class="flex items-center">
+                        <label for="ruCnEngagement" class="text-sm font-medium">Russia/China Engagement:</label>
+                        <div class="tooltip-container"><i class="tooltip-icon">?</i><span class="tooltip-text"><strong>Probability of tangible support for Iran from Russia/China.</strong><br>Directly increases the frequency of the Multipolar Split scenario, leading to the longest, most economically damaging "Cold War 2.0" outcomes.</span></div>
+                    </div>
+                    <div class="flex items-center">
+                        <input type="range" id="ruCnEngagement" min="0" max="1" step="0.01" value="0.20" class="w-full mr-3">
+                        <span id="ruCnEngagementValue" class="font-mono text-indigo-400 text-sm">0.20</span>
+                    </div>
+                </div>
+                <!-- Parameter 4 -->
+                 <div class="space-y-1">
+                    <div class="flex items-center">
+                        <label for="ceasefireChance" class="text-sm font-medium">Ceasefire Off-Ramp Chance:</label>
+                        <div class="tooltip-container"><i class="tooltip-icon">?</i><span class="tooltip-text"><strong>The effectiveness of diplomatic efforts to de-escalate.</strong><br>A powerful de-escalatory force. Higher values reduce conflict duration and casualties across most scenarios, making peaceful resolutions more likely.</span></div>
+                    </div>
+                    <div class="flex items-center">
+                        <input type="range" id="ceasefireChance" min="0" max="1" step="0.01" value="0.23" class="w-full mr-3">
+                        <span id="ceasefireChanceValue" class="font-mono text-indigo-400 text-sm">0.23</span>
+                    </div>
+                </div>
+                <!-- Parameter 5 -->
+                 <div class="space-y-1">
+                    <div class="flex items-center">
+                        <label for="marketShock" class="text-sm font-medium">Market Shock Severity:</label>
+                        <div class="tooltip-container"><i class="tooltip-icon">?</i><span class="tooltip-text"><strong>Simulates global market sensitivity to geopolitical risk.</strong><br>Amplifies economic consequences. Higher values cause more extreme price peaks in commodities and greater Global GDP Loss for the same level of physical conflict.</span></div>
+                    </div>
+                    <div class="flex items-center">
+                        <input type="range" id="marketShock" min="1" max="2" step="0.01" value="1.15" class="w-full mr-3">
+                        <span id="marketShockValue" class="font-mono text-indigo-400 text-sm">1.15</span>
+                    </div>
+                </div>
+                <!-- Button -->
+                <div class="flex items-center pt-5">
+                     <button id="runSimulationBtn" class="w-full bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-indigo-700 transition duration-300">
+                        Run 100,000 Iterations
+                    </button>
+                </div>
+            </div>
+            <div id="loadingIndicator" class="hidden text-center mt-4 text-gray-400">
+                <p>Simulating... this may take a moment.</p>
+            </div>
+        </div>
+
+        <!-- Tab Navigation -->
+        <div class="flex flex-wrap border-b border-gray-700">
+            <button class="tab py-2 px-4 text-sm sm:text-base font-semibold rounded-t-lg active" onclick="changeTab('Overview')">Overview</button>
+            <button class="tab py-2 px-4 text-sm sm:text-base font-semibold rounded-t-lg" onclick="changeTab('PunchPause')">Punch/Pause</button>
+            <button class="tab py-2 px-4 text-sm sm:text-base font-semibold rounded-t-lg" onclick="changeTab('RegionalWar')">Regional War</button>
+            <button class="tab py-2 px-4 text-sm sm:text-base font-semibold rounded-t-lg" onclick="changeTab('GrayZone')">Gray Zone</button>
+            <button class="tab py-2 px-4 text-sm sm:text-base font-semibold rounded-t-lg" onclick="changeTab('Invasion')">Invasion</button>
+            <button class="tab py-2 px-4 text-sm sm:text-base font-semibold rounded-t-lg" onclick="changeTab('MultipolarSplit')">Multipolar</button>
+        </div>
+
+        <!-- Tab Content -->
+        <div id="tab-content-container">
+            <div id="tab-Overview" class="tab-content active space-y-6 md:space-y-8">
+                <!-- Content for Overview Tab -->
+            </div>
+            <!-- Other tab divs will be generated by JS -->
+        </div>
+
+        <!-- Footer with Export -->
+         <div class="text-center mt-8">
+            <button id="exportCsvBtn" class="bg-green-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-700 transition duration-300 disabled:bg-gray-500" disabled>Export All Raw Data (CSV)</button>
+        </div>
+
+    </div>
+
+    <script>
+    // --- GLOBAL STATE & SETUP ---
+    let allIterationsData = [];
+    let charts = {}; // To hold all chart instances for proper destruction
+    let userSettings = {};
+    const SCENARIO_WEIGHTS = { PunchPause: 0.24, RegionalWar: 0.38, GrayZone: 0.17, Invasion: 0.05, MultipolarSplit: 0.16 };
+    const scenarioDetails = {
+        PunchPause: { color: '#4f46e5', definition: 'A limited, short-duration strike to degrade a specific capability, followed by a return to tense, non-violent competition. Characterized by low casualties and contained economic impact.' },
+        RegionalWar: { color: '#ef4444', definition: "An initial conflict cycle escalates beyond Iran's borders, involving direct military exchanges between the U.S., Israel, Iran, and major proxies. Characterized by high casualties, refugee flows, and severe economic shocks." },
+        GrayZone: { color: '#f59e0b', definition: 'A prolonged conflict below the threshold of conventional war, fought via proxies, cyber attacks, and economic sabotage. Characterized by long duration but lower-intensity violence that erodes stability over time.' },
+        Invasion: { color: '#8b5cf6', definition: 'A full-scale invasion of Iran with the objective of regime change. The most extreme scenario, with the highest potential for casualties, refugees, and catastrophic economic consequences.' },
+        MultipolarSplit: { color: '#10b981', definition: 'The regional conflict becomes a proxy battleground for great powers, with Russia and/or China providing direct military or economic aid to Iran, leading to a "Cold War 2.0" dynamic.' }
+    };
+
+    // --- INITIALIZATION ---
+    document.addEventListener('DOMContentLoaded', () => {
+        const tabContainer = document.getElementById('tab-content-container');
+        Object.keys(scenarioDetails).forEach(scenario => {
+            const div = document.createElement('div');
+            div.id = `tab-${scenario}`;
+            div.className = 'tab-content space-y-6 md:space-y-8';
+            tabContainer.appendChild(div);
+        });
+        updateDashboard(null);
+        document.querySelectorAll('input[type="range"]').forEach(slider => {
+            const valueSpan = document.getElementById(`${slider.id}Value`);
+            slider.addEventListener('input', () => valueSpan.textContent = parseFloat(slider.value).toFixed(2));
+        });
+        document.getElementById('runSimulationBtn').addEventListener('click', handleRunSimulation);
+        document.getElementById('exportCsvBtn').addEventListener('click', handleExport);
+        initializeTooltips();
+    });
+
+    // --- UI INTERACTIVITY ---
+    function initializeTooltips() {
+        document.querySelectorAll('.tooltip-container').forEach(container => {
+            const icon = container.querySelector('.tooltip-icon');
+            const tooltipText = container.querySelector('.tooltip-text');
+
+            icon.addEventListener('click', (e) => {
+                e.stopPropagation();
+                document.querySelectorAll('.tooltip-text.show').forEach(tt => {
+                    if (tt !== tooltipText) tt.classList.remove('show');
+                });
+                tooltipText.classList.toggle('show');
+                if (tooltipText.classList.contains('show')) {
+                    const iconRect = icon.getBoundingClientRect();
+                    tooltipText.classList.remove('bottom');
+                    requestAnimationFrame(() => {
+                         const tooltipRect = tooltipText.getBoundingClientRect();
+                         if (iconRect.top < tooltipRect.height + 20) {
+                            tooltipText.classList.add('bottom');
+                         }
+                    });
+                }
+            });
+        });
+        document.body.addEventListener('click', () => {
+            document.querySelectorAll('.tooltip-text.show').forEach(tt => tt.classList.remove('show'));
+        }, true);
+    }
+
+    function changeTab(tabName) {
+        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+        document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+        document.getElementById(`tab-${tabName}`).classList.add('active');
+        document.querySelector(`.tab[onclick*="'${tabName}'"]`).classList.add('active');
+    }
+
+    function handleRunSimulation() {
+        const btn = document.getElementById('runSimulationBtn');
+        const loader = document.getElementById('loadingIndicator');
+        btn.disabled = true;
+        loader.classList.remove('hidden');
+
+        setTimeout(() => {
+            userSettings = {
+                proxyEscalationProb: parseFloat(document.getElementById('proxyEscalation').value),
+                accidentalEscalationProb: parseFloat(document.getElementById('accidentalEscalation').value),
+                ruCnEngagementWeighting: parseFloat(document.getElementById('ruCnEngagement').value),
+                ceasefireChance: parseFloat(document.getElementById('ceasefireChance').value),
+                marketShockMultiplier: parseFloat(document.getElementById('marketShock').value)
+            };
+            allIterationsData = executeSimulation(100000, userSettings);
+            updateDashboard(allIterationsData, userSettings);
+            btn.disabled = false;
+            loader.classList.add('hidden');
+            document.getElementById('exportCsvBtn').disabled = false;
+        }, 100);
+    }
+
+    function handleExport() {
+        if (allIterationsData.length > 0) exportToCSV(allIterationsData);
+    }
+
+    // --- SIMULATION LOGIC ---
+    function executeSimulation(iterations, settings) {
+        const results = [];
+        for (let i = 0; i < iterations; i++) {
+            const rand = Math.random();
+            let cumulativeProb = 0; let scenario = "PunchPause";
+            for (const [key, value] of Object.entries(SCENARIO_WEIGHTS)) {
+                cumulativeProb += value;
+                if (rand <= cumulativeProb) { scenario = key; break; }
+            }
+            const initialStrike=Math.random(), iranianRetaliation=Math.random(), escalation=Math.random();
+            const accidentalEvent = Math.random() < settings.accidentalEscalationProb;
+            const ruCnEngage = Math.random() < settings.ruCnEngagementWeighting;
+
+            let initialStrikeType, iranianRetaliationType, usIsraelEscalationType;
+            // Constrain narrative elements based on the chosen scenario
+            switch (scenario) {
+                case 'Invasion':
+                    initialStrikeType = 'A massive air and sea bombardment';
+                    iranianRetaliationType = 'a desperate defense of its territory';
+                    usIsraelEscalationType = 'launched a full-scale ground invasion';
+                    break;
+                case 'RegionalWar':
+                    initialStrikeType = initialStrike > 0.5 ? 'A major volley of airstrikes' : 'A surgical strike on key proxy leadership';
+                    iranianRetaliationType = iranianRetaliation > 0.5 ? 'a direct ballistic missile barrage on allied bases' : 'a regional swarm attack by multiple proxy forces';
+                    usIsraelEscalationType = escalation > 0.5 ? 'initiated a sustained air campaign' : 'launched proportional counter-strikes';
+                    break;
+                case 'GrayZone':
+                    initialStrikeType = initialStrike > 0.5 ? 'A targeted assassination via drone' : 'A covert sabotage operation on infrastructure';
+                    iranianRetaliationType = iranianRetaliation > 0.5 ? 'a major cyberattack on financial systems' : 'deniable attacks on commercial shipping';
+                    usIsraelEscalationType = escalation > 0.5 ? 'implemented punishing new sanctions' : 'conducted its own covert counter-operations';
+                    break;
+                case 'MultipolarSplit':
+                    initialStrikeType = 'A significant regional strike';
+                    iranianRetaliationType = 'a limited but firm military response';
+                    usIsraelEscalationType = 'prepared for further military action, pending international reaction';
+                    break;
+                case 'PunchPause':
+                default:
+                    initialStrikeType = 'A highly targeted surgical strike';
+                    iranianRetaliationType = 'symbolic but non-lethal retaliation';
+                    usIsraelEscalationType = 'signaled for de-escalation after achieving its objective';
+                    break;
+            }
+
+            let baseDuration=30, baseCasualties=1000, baseGdpLoss=0.1, oilPeak=1.05, goldPeak=1.02, wheatPeak=1.03, fertPeak=1.04;
+            switch (scenario) {
+                case "RegionalWar": baseDuration=180; baseCasualties=50000; baseGdpLoss=1.5; oilPeak=1.8; goldPeak=1.3; wheatPeak=1.4; fertPeak=1.5; break;
+                case "GrayZone": baseDuration=365; baseCasualties=5000; baseGdpLoss=0.5; oilPeak=1.2; goldPeak=1.1; break;
+                case "Invasion": baseDuration=730; baseCasualties=250000; baseGdpLoss=4.0; oilPeak=3.0; goldPeak=1.8; wheatPeak=2.0; fertPeak=2.5; break;
+                case "MultipolarSplit": baseDuration=1000; baseCasualties=25000; baseGdpLoss=2.5; oilPeak=2.2; goldPeak=1.5; break;
+            }
+            let duration=baseDuration*(1+escalation*2), casualties=baseCasualties*(1+initialStrike+iranianRetaliation*2+escalation*3);
+            let finalOilPeak=oilPeak*(1+(iranianRetaliation*0.5))*settings.marketShockMultiplier, finalGdpLoss=baseGdpLoss*(1+escalation), refugees=casualties*10*(1+(scenario==="Invasion"?5:1));
+            if(accidentalEvent){duration*=1.5;casualties*=2;finalOilPeak*=1.2;finalGdpLoss*=1.3;}
+            if(Math.random()<settings.ceasefireChance&&scenario!=="Invasion"){duration*=0.5;}
+            results.push({
+                scenario, duration, casualties, refugees, finalGdpLoss,
+                oilPeak:finalOilPeak, goldPeak:goldPeak*(1+(escalation*0.3))*settings.marketShockMultiplier,
+                wheatPeak:wheatPeak*(1+(escalation*0.2))*settings.marketShockMultiplier, fertPeak:fertPeak*(1+(escalation*0.4))*settings.marketShockMultiplier,
+                narrative_details: { initialStrikeType, iranianRetaliationType, usIsraelEscalationType, accidentalEvent, ruCnEngage }
+            });
+        }
+        return results;
+    }
+
+    // --- DASHBOARD UPDATE & INSIGHTS ---
+    function updateDashboard(data, settings) {
+        Object.values(charts).forEach(chart => chart.destroy());
+        charts = {};
+        const placeholder = '<div class="text-center text-gray-400 p-8">Run simulation to generate data.</div>';
+        const overviewTab = document.getElementById('tab-Overview');
+        if (!data) {
+            overviewTab.innerHTML = placeholder;
+            Object.keys(scenarioDetails).forEach(s => document.getElementById(`tab-${s}`).innerHTML = placeholder);
+            return;
+        }
+        const scenarioCounts = Object.keys(scenarioDetails).map(s => data.filter(d => d.scenario === s).length);
+        overviewTab.innerHTML = `
+            <div id="overview-insight-summary" class="insight-summary"></div>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-6 md:mt-8">
+                <div class="bg-gray-800 p-4 rounded-lg shadow-lg">
+                    <h3 class="text-lg font-semibold text-white mb-2 text-center">Scenario Frequency</h3>
+                    <div class="chart-container"><canvas id="overviewScenarioChart"></canvas></div>
+                    <div id="overview-probabilities" class="mt-4 text-center text-xs text-gray-400 flex flex-wrap justify-center gap-x-4 gap-y-2"></div>
+                </div>
+                <div class="bg-gray-800 p-4 rounded-lg shadow-lg">
+                    <h3 class="text-lg font-semibold text-white mb-2 text-center">Median Global GDP Loss (%) by Scenario</h3>
+                    <div class="chart-container"><canvas id="overviewGdpChart"></canvas></div>
+                </div>
+            </div>
+            <div class="bg-gray-800 p-4 md:p-6 rounded-lg shadow-lg">
+                <h3 class="text-lg font-semibold text-white mb-4 text-center">Regional Impact Heatmap (Aggregated Risk from 'Regional War')</h3>
+                <div id="heatmap" class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-4 text-white"></div>
+            </div>`;
+
+        generateInsightSummary('overview', data, settings);
+
+        charts.overviewScenario = new Chart(document.getElementById('overviewScenarioChart').getContext('2d'),{type:'doughnut',data:{labels:Object.keys(scenarioDetails),datasets:[{data:scenarioCounts,backgroundColor:Object.values(scenarioDetails).map(s=>s.color)}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}});
+        document.getElementById('overview-probabilities').innerHTML = Object.entries(SCENARIO_WEIGHTS).map(([name,prob])=>`<span class="font-semibold" style="color:${scenarioDetails[name].color};">${name.replace(/([A-Z])/g,' $1').trim()}:<strong>${(prob*100).toFixed(0)}%</strong></span>`).join('');
+        const medianGdp=Object.keys(scenarioDetails).map(s=>percentile(data.filter(d=>d.scenario===s).map(d=>d.finalGdpLoss),50));
+        charts.overviewGdp = new Chart(document.getElementById('overviewGdpChart').getContext('2d'),{type:'bar',data:{labels:Object.keys(scenarioDetails),datasets:[{label:'Median Global GDP Loss (%)',data:medianGdp,backgroundColor:'#d946ef'}]},options:{scales:{y:{beginAtZero:true,ticks:{color:'#d1d5db'}},x:{ticks:{color:'#d1d5db'}}},responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}});
+        Object.keys(scenarioDetails).forEach(scenario=>{populateScenarioTab(scenario,data.filter(d=>d.scenario===scenario),settings);});
+        updateHeatmap(data);
+    }
+
+    function populateScenarioTab(scenario, scenarioData, settings) {
+        const tab = document.getElementById(`tab-${scenario}`);
+        if (scenarioData.length === 0) {
+            tab.innerHTML = '<div class="text-center text-gray-400 p-8">No iterations resulted in this scenario.</div>';
+            return;
+        }
+        const p=(metric,val)=>percentile(scenarioData.map(d=>d[metric]),val);
+        const formatNum=(num)=>num>1_000_000?`${(num/1_000_000).toFixed(1)}m`:(num>1000?`${(num/1000).toFixed(1)}k`:`${Math.round(num)}`);
+        const casualtiesMedian=p('casualties',50);
+        const impactLevels={humanitarian:getImpactLevel(casualtiesMedian,[5000,25000,100000]),economic:getImpactLevel(p('finalGdpLoss',50),[0.5,1.5,4.0]),duration:getImpactLevel(p('duration',50),[60,200,500])};
+        tab.innerHTML = `
+            <div id="${scenario}-insight-summary" class="insight-summary"></div>
+            <div class="mt-6 md:mt-8 bg-gray-800 p-4 md:p-6 rounded-lg shadow-lg">
+                <h3 class="text-xl md:text-2xl font-bold text-white mb-2" style="color:${scenarioDetails[scenario].color};">${scenario.replace(/([A-Z])/g,' $1').trim()}</h3>
+                <p class="text-sm md:text-base text-gray-400 max-w-3xl">${scenarioDetails[scenario].definition}</p>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-4">
+                 <div class="metric-card"><div class="value">${(SCENARIO_WEIGHTS[scenario]*100).toFixed(0)}%</div><div class="label">Base Probability</div></div>
+                <div class="metric-card"><div class="value">${formatNum(casualtiesMedian)}</div><div class="label">Median Casualties</div></div>
+                <div class="metric-card"><div class="value">${formatNum(p('refugees',50))}</div><div class="label">Median Refugees</div></div>
+                <div class="metric-card"><div class="value">${p('duration',50).toFixed(0)}</div><div class="label">Median Duration (Days)</div></div>
+                <div class="metric-card"><div class="value">${p('finalGdpLoss',50).toFixed(2)}%</div><div class="label">Median Global GDP Loss</div></div>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
+                <div class="bg-gray-800 p-4 md:p-6 rounded-lg shadow-lg">
+                    <h4 class="text-lg font-semibold text-white mb-4">Median Impact Summary</h4>
+                    <div class="flex flex-wrap gap-4">
+                        <span class="impact-badge ${impactLevels.humanitarian.class}">Humanitarian:${impactLevels.humanitarian.text}</span>
+                        <span class="impact-badge ${impactLevels.economic.class}">Economic:${impactLevels.economic.text}</span>
+                        <span class="impact-badge ${impactLevels.duration.class}">Duration:${impactLevels.duration.text}</span>
+                    </div>
+                    <h4 class="text-lg font-semibold text-white mt-6 mb-4">Commodity Price Shock (% increase,median)</h4>
+                     <div class="chart-container"><canvas id="chart-prices-${scenario}"></canvas></div>
+                </div>
+                <div class="bg-gray-800 p-4 md:p-6 rounded-lg shadow-lg">
+                    <h4 class="text-lg font-semibold text-white mb-4">Plausible Narrative Example</h4>
+                    <div id="narratives-${scenario}" class="space-y-3"></div>
+                </div>
+            </div>`;
+
+        generateInsightSummary(scenario, scenarioData, settings);
+
+        const priceData={oil:(p('oilPeak',50)-1)*100,gold:(p('goldPeak',50)-1)*100,wheat:(p('wheatPeak',50)-1)*100,fertilizer:(p('fertPeak',50)-1)*100};
+        charts[`prices-${scenario}`]=new Chart(document.getElementById(`chart-prices-${scenario}`).getContext('2d'),{type:'bar',data:{labels:['Oil','Gold','Wheat','Fertilizer'],datasets:[{data:Object.values(priceData),backgroundColor:['#3b82f6','#facc15','#a16207','#65a30d']}]},options:{indexAxis:'y',scales:{x:{beginAtZero:true,ticks:{color:'#d1d5db'}},y:{ticks:{color:'#d1d5db'}}},responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}});
+
+        const narrativesContainer=document.getElementById(`narratives-${scenario}`);
+        narrativesContainer.innerHTML = ''; // Clear previous
+
+        // Select a representative high-impact (90th percentile) narrative for this specific scenario
+        const sortedByCasualties = [...scenarioData].sort((a, b) => a.casualties - b.casualties);
+        const p90_index = Math.floor(sortedByCasualties.length * 0.90);
+        const representativeIteration = sortedByCasualties[p90_index];
+
+        if (representativeIteration) {
+            const d = representativeIteration.narrative_details;
+            let story = `The crisis began with <strong>${d.initialStrikeType}</strong> against key Iranian targets. Tehran's leadership, opting for a forceful response, ordered <strong>${d.iranianRetaliationType}</strong>. Faced with this escalation, the US/Israel chose to <strong>${d.usIsraelEscalationType}</strong>.`;
+
+            if (d.accidentalEvent) {
+                story += ` The situation was tragically amplified by an unforeseen <strong>accidental escalation event</strong>, which shattered diplomatic off-ramps.`;
+            }
+            if (d.ruCnEngage) {
+                story += ` The conflict dynamics shifted dramatically when <strong>Russia/China provided material support to Iran</strong>, prolonging the war and increasing its intensity.`
+            }
+
+            story += ` This specific chain of events resulted in a conflict lasting approximately <strong>${Math.round(representativeIteration.duration)} days</strong>, causing an estimated <strong>${formatNum(representativeIteration.casualties)} casualties</strong> and displacing <strong>${formatNum(representativeIteration.refugees)} people</strong>.`
+
+            const card=document.createElement('div');
+            card.className='narrative-card p-4 rounded-md text-sm leading-relaxed';
+            card.innerHTML=story;
+            narrativesContainer.appendChild(card);
+        } else {
+             narrativesContainer.innerHTML = `<p class="text-sm text-gray-400">No representative narrative available for this scenario in the current simulation run.</p>`;
+        }
+    }
+
+    function generateInsightSummary(type, data, settings) {
+        const container = document.getElementById(`${type}-insight-summary`);
+        if (!container) return;
+
+        let insights = [];
+
+        if (type === 'overview') {
+            const counts = data.reduce((acc, d) => { acc[d.scenario] = (acc[d.scenario] || 0) + 1; return acc; }, {});
+            const mostFrequent = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b);
+            insights.push(`The simulation's most frequent outcome was <strong>${mostFrequent.replace(/([A-Z])/g, ' $1').trim()}</strong>, driven by the baseline probabilities.`);
+
+            if (settings.proxyEscalationProb > 0.6) insights.push(`A <strong>high chance of proxy escalation</strong> significantly increased the likelihood of a wider <strong>Regional War</strong>.`);
+            if (settings.accidentalEscalationProb > 0.3) insights.push(`The high "fog of war" factor introduced <strong>major volatility</strong>, leading to more extreme casualty and economic outcomes.`);
+            if (settings.ruCnEngagementWeighting > 0.5) insights.push(`Strong Russia/China engagement makes a <strong>Multipolar Split</strong> a dominant, highly damaging long-term outcome.`);
+            if (settings.ceasefireChance > 0.5) insights.push(`Effective diplomacy and frequent ceasefires led to <strong>shorter conflicts</strong> and lower overall destruction.`);
+            if (settings.marketShockMultiplier > 1.5) insights.push(`Sensitive markets <strong>amplified economic damage</strong>, with commodity prices spiking disproportionately.`);
+        } else {
+             const p = (metric, val) => percentile(data.map(d => d[metric]), val);
+             let medianCasualties = p('casualties', 50);
+             insights.push(`Within the <strong>${type.replace(/([A-Z])/g, ' $1').trim()}</strong> scenario, the median outcome resulted in <strong>${formatNum(medianCasualties)} casualties</strong> over approximately <strong>${p('duration', 50).toFixed(0)} days.</strong>`);
+             if (settings.accidentalEscalationProb > 0.3) {
+                 const p90Casualties = p('casualties', 90);
+                 insights.push(`The high chance of accidental escalation created severe outliers, with 10% of cases exceeding <strong>${formatNum(p90Casualties)} casualties.</strong>`);
+             }
+        }
+
+        container.innerHTML = insights.join(' ');
+    }
+
+    function formatNum(num){return num>1_000_000?`${(num/1_000_000).toFixed(1)}m`:(num>1000?`${(num/1000).toFixed(1)}k`:`${Math.round(num)}`)}
+
+    function updateHeatmap(data) {
+        const regionalWarData = data.filter(d => d.scenario === 'RegionalWar');
+        if (regionalWarData.length === 0) return;
+
+        const regions = {
+            'Middle East': { f: 1.0, d: 0.8, h: 1.0, i: 1.0, tip: 'Epicenter of conflict. Faces direct military strikes, mass casualties, infrastructure collapse, and severe political instability.' },
+            'Europe': { f: 0.6, d: 0.5, h: 0.3, i: 0.5, tip: 'Faces severe energy shocks causing stagflation, supply chain disruption, and moderate pressure from refugee flows.' },
+            'E. Europe & Baltics': { f: 0.8, d: 0.6, h: 0.7, i: 0.8, tip: 'A frontline region. Faces extreme energy insecurity, high risk from refugee waves, and heightened political/military pressure from Russia.' },
+            'North America': { f: 0.4, d: 0.1, h: 0.1, i: 0.2, tip: 'Impacted primarily through economic channels: market volatility, inflation from energy prices, and the cost of military intervention.' },
+            'Russia': { f: -0.5, d: -0.1, h: 0.1, i: 0.3, tip: 'Economically benefits from high global energy prices. Strategically benefits from US distraction. Low direct risk.' },
+            'East Asia': { f: 0.8, d: 0.4, h: 0.2, i: 0.5, tip: 'Critically vulnerable to energy price shocks and shipping lane disruptions, threatening manufacturing and economic stability.' },
+            'Central Asia': {f: 0.4, d: 0.8, h: 0.6, i: 0.8, tip: 'Faces significant risk from food price inflation and economic contagion from Russia/China. Vulnerable to political pressure and instability spilling over from Iran/Afghanistan.'},
+            'South Asia': { f: 0.6, d: 0.9, h: 0.7, i: 0.8, tip: 'High risk of food insecurity due to import reliance. Faces economic fallout and potential for regional instability to spill over.' },
+            'Africa': { f: 0.5, d: 1.0, h: 0.9, i: 0.9, tip: 'Most vulnerable to food price spikes, leading to high risk of famine and humanitarian crises, which in turn fuels major political instability.' },
+            'South America': { f: 0.3, d: 0.3, h: 0.2, i: 0.4, tip: 'Primarily affected by global economic slowdown and volatility in commodity markets, with low direct security risks.' },
+            'Caribbean': { f: 0.7, d: 0.7, h: 0.1, i: 0.6, tip: 'Highly exposed to tourism decline and fuel/food price inflation caused by global economic shocks. Low direct security risk.'}
+        };
+
+        const fuelRisk = (percentile(regionalWarData.map(d => d.oilPeak), 50) - 1);
+        const foodRisk = ((percentile(regionalWarData.map(d => d.wheatPeak), 50) - 1) + (percentile(regionalWarData.map(d => d.fertPeak), 50) - 1)) / 2;
+        const humanitarianRisk = percentile(regionalWarData.map(d => d.refugees), 50) / 5000000;
+        const instabilityRisk = percentile(regionalWarData.map(d => d.finalGdpLoss), 50) / 2;
+
+        const heatmapDiv = document.getElementById('heatmap');
+        heatmapDiv.innerHTML = '';
+
+        for (const [name, w] of Object.entries(regions)) {
+            const risk = (w.f * fuelRisk) + (w.d * foodRisk) + (w.h * humanitarianRisk) + (w.i * instabilityRisk);
+            const normRisk = Math.min(1, Math.max(0, risk / 1.5)); // Adjusted denominator for better color spread
+            const color = `hsl(${(1 - normRisk) * 120}, 80%, 35%)`;
+
+            const cell = document.createElement('div');
+            cell.className = 'p-3 rounded-lg text-center heatmap-cell text-xs sm:text-sm';
+            cell.style.backgroundColor = color;
+            cell.innerHTML = `<span class="font-semibold">${name}</span><br><span class="opacity-80">Risk: ${(normRisk * 100).toFixed(0)}</span>`;
+
+            const tooltipText = `<strong>${name} - Risk: ${(normRisk * 100).toFixed(0)}%</strong>\n${w.tip}`;
+            cell.setAttribute('title', tooltipText.replace(/<br>/g, '\n'));
+
+            heatmapDiv.appendChild(cell);
+        }
+    }
+
+    // --- UTILITY FUNCTIONS ---
+    function percentile(arr,p){if(arr.length===0)return 0;arr.sort((a,b)=>a-b);const index=(p/100)*(arr.length-1),lower=Math.floor(index),upper=lower+1,weight=index-lower;if(upper>=arr.length)return arr[lower];return arr[lower]*(1-weight)+arr[upper]*weight;}
+    function getImpactLevel(value,thresholds){if(value<thresholds[0])return{text:'Low',class:'bg-green-800 text-green-200'};if(value<thresholds[1])return{text:'Medium',class:'bg-yellow-800 text-yellow-200'};if(value<thresholds[2])return{text:'High',class:'bg-orange-800 text-orange-200'};return{text:'Severe',class:'bg-red-800 text-red-200'};}
+    function exportToCSV(data){const headers=Object.keys(data[0]).filter(k=>typeof data[0][k]!=='object');const csvRows=[headers.join(',')];for(const row of data){const values=headers.map(header=>`"${(''+row[header]).replace(/"/g,'\\"')}"`);csvRows.push(values.join(','));}const blob=new Blob([csvRows.join('\n')],{type:'text/csv'});const url=window.URL.createObjectURL(blob);const a=document.createElement('a');a.setAttribute('hidden','');a.setAttribute('href',url);a.setAttribute('download','wargame_simulation_data.csv');document.body.appendChild(a);a.click();document.body.removeChild(a);}
+    </script>
+</body>
+</html>
+Footer
+© 2025 GitHub, Inc.
+Footer navigation
+Terms
+Privacy
+Security
+Status
